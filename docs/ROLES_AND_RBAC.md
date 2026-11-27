@@ -1,65 +1,97 @@
-# MediPick Master Roles & RBAC Matrix
+# MediPick Roles & RBAC Matrix
 
-This document defines the canonical Role-Based Access Control (RBAC) architecture implemented in `medipick-common` and enforced across all MediPick microservices, mobile apps, and web portals.
+> **Canonical Sources of Truth:** [`medipick-common/backend/medipick_core/rbac.py`](../backend/medipick_core/rbac.py) and [`medipick-pharmacy-ui/src/types/pharmacy.ts`](../../medipick-pharmacy-ui/src/types/pharmacy.ts).
+
+This document outlines the real, built-in roles across the active **Customer Mobile Application** and **Pharmacy Dispensary Operations**.
 
 ---
 
-## 1. System Roles Hierarchy
+## 1. System Role Tiers
 
 ```mermaid
 graph TD
-    SA["SUPER_ADMIN (Platform Administrator)"]
-    CO["COMPLIANCE_OFFICER (Regulatory Auditor)"]
-    PA["PHARMACY_ADMIN (Pharmacy Owner / Branch Lead)"]
-    PS["PHARMACIST (Licensed Medical Verifier)"]
-    ST["PHARMACY_STAFF (Dispensary Operator)"]
-    CU["CUSTOMER (Mobile End User)"]
+    subgraph Customer Mobile Tier
+        CU["Customer (Mobile End User)"]
+    end
 
-    SA --> CO
-    SA --> PA
-    PA --> PS
-    PA --> ST
+    subgraph Dispensary Staff Tier (7 Canonical Roles)
+        OC["Owner / Chief Pharmacist (SLMC Required)"]
+        PO["Pharmacy Owner (Active Business Owner)"]
+        INV["Investor (Read-Only Financials)"]
+        DM["Designated Manager / Pharmacist (SLMC Required)"]
+        SP["Staff Pharmacist (SLMC Required)"]
+        DA["Dispensary Assistant (Packer / Inventory)"]
+        DC["Dispensary Cashier (Pickup PIN & Payments)"]
+
+        OC --> DM
+        PO --> DM
+        DM --> SP
+        DM --> DA
+        DM --> DC
+    end
 ```
 
 ---
 
-## 2. Canonical Role Definitions
+## 2. Customer Role
 
-| Role Key | Code Definition | Scope | Primary Capabilities |
-| :--- | :--- | :--- | :--- |
-| **`SUPER_ADMIN`** | `UserRole.SUPER_ADMIN` | Global System | Manage all registered pharmacies, platform commission rates, system users, view platform-wide revenue analytics, toggle platform feature flags. |
-| **`COMPLIANCE_OFFICER`** | `UserRole.COMPLIANCE_OFFICER` | Global Regulatory | Audit all prescription verifications, inspect pharmacist NMRA/SLMC licenses, review disputed medication issues, access non-tamperable audit logs. |
-| **`PHARMACY_ADMIN`** | `UserRole.PHARMACY_ADMIN` | Branch / Dispensary | Manage branch inventory, add/remove staff accounts, assign staff roles, review branch financial performance, configure operating hours and delivery radius. |
-| **`PHARMACIST`** | `UserRole.PHARMACIST` | Dispensary Medical | Review and verify uploaded prescriptions, approve/reject Prescription-Only Medicines (POM), submit price quotes, verify AI seal detections. |
-| **`PHARMACY_STAFF`** | `UserRole.PHARMACY_STAFF` | Dispensary Logistics | Prepare confirmed orders, update stock levels, mark orders as packed/dispensed, handle customer pickup verification. |
-| **`CUSTOMER`** | `UserRole.CUSTOMER` | Individual Account | Mobile/web customer: request OTP login, search open pharmacies, order OTC medicines, upload prescriptions, track order status, submit payment via PayHere. |
+| Role | Auth Mechanism | Primary Capabilities |
+| :--- | :--- | :--- |
+| **`Customer`** (`CUSTOMER`) | Sri Lankan Mobile Phone SMS OTP (`+94...`) | Search open pharmacies, browse OTC drugs, upload prescriptions, view live clarity scores, accept pharmacist quotes, track order stages, pay via PayHere, rate experience. |
 
 ---
 
-## 3. Permissions Matrix Across Endpoints & Portals
+## 3. The 7 Built-In Pharmacy Staff Roles
 
-| Resource / Action | Customer | Pharmacy Staff | Pharmacist | Pharmacy Admin | Compliance Officer | Super Admin |
+| Role (`staff_role`) | SLMC # Required? | `is_owner` | `is_designated_manager` | Description |
+| :--- | :---: | :---: | :---: | :--- |
+| **`Owner / Chief Pharmacist`** | **Yes** | **Yes** | No | Solo or managing pharmacy owner who is also a licensed SLMC pharmacist. Full clinical, inventory, financial, and staff authority. |
+| **`Pharmacy Owner`** | No | **Yes** | No | Active non-pharmacist business owner. Manages business settings, multi-branch governance, financials, staff, and inventory additions (no clinical Rx verification). |
+| **`Investor`** | No | No | No | Silent financial stakeholder. Read-only access to gross revenue, payouts, and financial analytics. Blocked from inventory, staff, and prescription data. |
+| **`Designated Manager / Pharmacist`** | **Yes** | No | **Yes** | Branch operational lead and statutory Pharmacist-in-Charge (NMRA Section 120). Manages staff shifts, stock intake, customer dispute claims, and clinical Rx verification. |
+| **`Staff Pharmacist`** | **Yes** | No | No | Certified dispensing pharmacist. Reviews prescriptions, sends pricing quotes, conducts patient clinical chat consultations, and manages stock adjustments. |
+| **`Dispensary Assistant`** | No | No | No | Pharmacy technician and packer. Picking and packing orders, batch number entry, expiry monitoring, and stock threshold alerts. |
+| **`Dispensary Cashier`** | No | No | No | Counter POS and pickup custody. Verifies the customer's 6-digit pickup PIN, collects cash/card payments, and marks orders as dispensed. |
+
+---
+
+## 4. The 6 Canonical Permission Flags
+
+In MediPick, permissions are **never customized per individual checkbox**—they are strictly derived from the staff member's built-in role:
+
+```python
+PERMISSION_KEYS = (
+    "canReviewRx",          # Review prescriptions, approve/reject, request re-upload
+    "canApproveQuotes",      # Send price quotes and apply discounts
+    "canManageInventory",   # Adjust stock levels, add items, set alert thresholds
+    "canViewFinancials",    # View revenue charts, GMV, and bank settlement payouts
+    "canManageStaff",       # Invite staff, edit roster, assign shifts, manage store profile
+    "canProcessRefunds",    # Process order refunds and resolve patient disputes
+)
+```
+
+### Complete Permissions Matrix
+
+| Built-In Staff Role | `canReviewRx` | `canApproveQuotes` | `canManageInventory` | `canViewFinancials` | `canManageStaff` | `canProcessRefunds` |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Authenticate via Mobile OTP** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **Authenticate via Email/Password + JWT** | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Browse Pharmacy & OTC Catalog** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Upload Prescription Image** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **AI Prescription Clarity & Seal Check** | Triggered | View | View | View | Full Audit | Full Audit |
-| **Accept/Reject Prescription & Send Quote** | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ |
-| **Update Stock & Allocate Medicine** | ❌ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| **Mark Order DISPENSED / COMPLETED** | ❌ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| **Initiate PayHere Checkout** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **Access Financials & Revenue Stats** | ❌ | ❌ | Branch | Branch Full | Read-Only | Platform Full |
-| **Manage Staff Accounts & Invites** | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
-| **Inspect System Audit Logs** | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| **Approve / Suspend Pharmacy Licenses** | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| **`Owner / Chief Pharmacist`** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **`Pharmacy Owner`** | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| **`Investor`** | ❌ | ❌ | ❌ | ✅ *(Read-Only)* | ❌ | ❌ |
+| **`Designated Manager / Pharmacist`** | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
+| **`Staff Pharmacist`** | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
+| **`Dispensary Assistant`** | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ |
+| **`Dispensary Cashier`** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 
 ---
 
-## 4. Enforcement Strategy
+## 5. Core Regulatory & Custody Rules (NMRA / SLMC)
 
-1. **Backend Layer:**
-   * Python decorator: `@require_role(UserRole.SUPER_ADMIN, UserRole.COMPLIANCE_OFFICER)` in `medipick_core.rbac`.
-   * Multi-branch tenancy isolation enforced via `pharmacy_id` foreign key assertions on all DB queries.
-2. **Frontend Layer:**
-   * React component: `<AuthGuard allowedRoles={['SUPER_ADMIN', 'COMPLIANCE_OFFICER']}>` in `@medipick/ui/auth`.
+1. **Pharmacist Clinical Custody (NMRA Act No. 5 of 2015):**
+   * Only roles with verified **SLMC registration numbers** (`Owner / Chief Pharmacist`, `Designated Manager / Pharmacist`, `Staff Pharmacist`) hold `canReviewRx` and `canApproveQuotes`. Non-pharmacist owners and staff are strictly blocked from prescription approvals.
+2. **Minimum Custody & Ownership Invariant:**
+   * Every registered pharmacy branch must maintain at least **one active custody pharmacist** (`Owner / Chief Pharmacist` or `Designated Manager / Pharmacist`) and at least **one active owner**. Deactivations or role changes that violate this are blocked with `409 PHARMACIST_CUSTODY_REQUIRED` or `409 LAST_OWNER`.
+3. **Multi-Branch Governance:**
+   * Only `is_owner` roles (`Owner / Chief Pharmacist` and `Pharmacy Owner`) can register new branch outlets, switch between branches, view aggregated corporate payouts, and update company bank accounts.
+   * All other staff are strictly scoped to their assigned retail branch.
+4. **Counter Cashier Custody:**
+   * Releasing orders at the pharmacy counter requires entering the customer's secret 6-digit **Pickup PIN**, verified by `Dispensary Cashier`, `Staff Pharmacist`, `Designated Manager`, or `Owner`.

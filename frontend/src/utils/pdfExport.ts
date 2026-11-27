@@ -122,7 +122,12 @@ export async function downloadFinancialReportPdf(props: FinancialExcelProps): Pr
   doc.setTextColor(...BRAND_TEAL);
   doc.setFontSize(6);
   doc.setFont('helvetica', 'italic');
-  doc.text(`${props.rxOrders} Rx (POM) · ${props.otcOrders} OTC`, c4X + cardW / 2, cardY + 15.5, { align: 'center' });
+  const attachDisplay =
+    typeof props.attachRate === 'number'
+      ? `${props.attachRate.toFixed(1)}%`
+      : props.attachRate || (props.orders > 0 ? `${(((props.mixedOrders || 0) / props.orders) * 100).toFixed(1)}%` : '0%');
+  const mixedCount = props.mixedOrders || 0;
+  doc.text(`${props.rxOrders} Rx · ${props.otcOrders} OTC · ${mixedCount} Mixed (${attachDisplay})`, c4X + cardW / 2, cardY + 15.5, { align: 'center' });
 
   const fn = typeof autoTable === 'function' ? autoTable : (autoTable as any).default;
 
@@ -210,10 +215,17 @@ export async function downloadFinancialReportPdf(props: FinancialExcelProps): Pr
     margin: { left: margin, right: margin },
     head: [['Quality Indicator / Metric', 'Recorded Value', 'Metric Unit', 'Dispensary Benchmark', 'Clinical Custody', 'Statutory Standard']],
     body: [
-      ['Total Orders Dispensed', `${props.orders}`, 'Completed Orders', '100% Target Met', 'Supervising Pharmacist', 'NMRA Act § 54 & GPP'],
+      ['Total Invoiced Orders', `${props.orders}`, 'Completed Orders', '100% Target Met', 'Supervising Pharmacist', 'NMRA Act § 54 & GPP'],
       ['Prescription POM Orders', `${props.rxOrders}`, 'POM Prescriptions', 'Dispensed under Custody', 'Registered Pharmacist', 'Schedule III & IV (POM)'],
       ['Over-The-Counter Orders', `${props.otcOrders}`, 'OTC Transactions', 'General Healthcare Sales', 'Dispensary Staff', 'Schedule I & II (OTC)'],
-      ['Mean Basket Size', `LKR ${(props.stats.current.avgBasket || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 'LKR / Transaction', 'Commercial Benchmark', 'Dispensary Commercials', 'Standard Shelf Margin'],
+      ['Mixed Basket Orders (Rx+OTC)', `${props.mixedOrders || 0}`, 'Mixed Orders', 'Commercial Growth', 'Pharmacist Consultation', 'Unified Checkout System'],
+      ['Prescription Line Sales (Rx POM)', `LKR ${(props.rxRevenue ?? props.stats.rxRevenue ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 'LKR Volume', 'Clinical Core Line', 'Registered Pharmacist', 'Schedule III & IV Formulary'],
+      ['OTC Healthcare Line Sales', `LKR ${(props.otcRevenue ?? props.stats.otcRevenue ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 'LKR Volume', 'Wellness & OTC Line', 'Dispensary Staff', 'Schedule I & II General'],
+      ['OTC Basket Attach Rate', `${typeof props.attachRate === 'number' ? props.attachRate.toFixed(1) + '%' : props.attachRate || (props.orders > 0 ? (((props.mixedOrders || 0) / props.orders) * 100).toFixed(1) + '%' : '0.0%')}`, 'Cross-Sell %', 'Target Benchmark: ≥ 30%', 'Commercials Team', 'GPP Commercial Telemetry'],
+      ['Mean Basket Size (ABV)', `LKR ${(props.stats.current.avgBasket || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 'LKR / Transaction', 'Commercial Benchmark', 'Dispensary Commercials', 'Standard Shelf Margin'],
+      ['Average Quote Turnaround (TAT)', `${(props.stats.current.avgQuoteTurnaroundMinutes || 0).toFixed(1)} mins`, 'Turnaround Speed', 'Target SLA: ≤ 10 mins', 'Registered Pharmacist', 'Good Pharmacy Practice'],
+      ['Bench Preparation Speed', `${(props.stats.current.avgPrepMinutes || 0).toFixed(1)} mins`, 'Bench Assembly Time', 'Target SLA: ≤ 15 mins', 'Dispensing Staff', 'GPP Handover Standard'],
+      ['Quote Acceptance Rate', `${(props.stats.current.quoteAcceptanceRate || 0).toFixed(1)}%`, 'Customer Conversion', 'Target: ≥ 85%', 'Dispensary Management', 'Digital Prescription Flow'],
       ['Fulfillment On-Time SLA Rate', `${(props.stats.current.onTimeRate || 0).toFixed(1)}%`, 'Handover Speed %', 'Benchmark: 95.0%', 'Operations Team', 'Good Pharmacy Practice (SLA Met)'],
       ['Active Marketing Campaigns', `${props.activePromos}`, 'Active Campaigns', 'Active Store Offers', 'Marketing & Retail', 'Fair Trading Regulations'],
       ['Total Campaign Redemptions', `${props.totalRedemptions}`, 'Discount Claims', 'Customer Redemptions', 'Marketing & Retail', 'Absorbed in Net Sales'],
@@ -276,27 +288,93 @@ export async function downloadFinancialReportPdf(props: FinancialExcelProps): Pr
     },
   });
 
-  const nextY3 = (doc as any).lastAutoTable.finalY + 8;
+  const nextY3 = (doc as any).lastAutoTable.finalY + 6;
 
-  // 7. Official Certification & Sign-off Block
-  if (nextY3 < pageHeight - 30) {
-    doc.setDrawColor(203, 213, 225);
-    doc.setLineWidth(0.3);
-    doc.line(margin, nextY3, margin + 70, nextY3);
-    doc.line(pageWidth - margin - 70, nextY3, pageWidth - margin, nextY3);
-
-    doc.setTextColor(...TEXT_MUTED);
-    doc.setFontSize(7);
+  // 7. Section 4: Daily Fulfillment & Revenue Trajectory
+  if (props.points && props.points.length > 0) {
+    let startY4 = nextY3;
+    if (startY4 > pageHeight - 55) {
+      doc.addPage();
+      startY4 = 15;
+    }
+    doc.setTextColor(...BRAND_DARK);
+    doc.setFontSize(8.5);
     doc.setFont('helvetica', 'bold');
-    doc.text('CERTIFIED BY PHARMACIST-IN-CHARGE', margin, nextY3 + 4);
-    doc.setFont('helvetica', 'normal');
-    doc.text('SLMC Registered Pharmacist Signature & Seal', margin, nextY3 + 8);
+    doc.text('4. DAILY DISPENSARY FULFILLMENT & REVENUE TRAJECTORY', margin, startY4);
 
-    doc.setFont('helvetica', 'bold');
-    doc.text('DISPENSARY REGULATORY AUDIT VERIFICATION', pageWidth - margin - 70, nextY3 + 4);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`NMRA Licence: ${props.license} • Good Pharmacy Practice`, pageWidth - margin - 70, nextY3 + 8);
+    const trajectoryRows = props.points.map((pt) => {
+      const rxVal =
+        pt.rxValue ??
+        (pt.value > 0
+          ? props.rxRevenue
+            ? Math.round(pt.value * (props.rxRevenue / (props.grossRaw || 1)) * 100) / 100
+            : 0
+          : 0);
+      const otcVal = pt.otcValue ?? (pt.value > 0 ? Math.max(0, pt.value - rxVal) : 0);
+      return [
+        pt.label,
+        pt.fullLabel,
+        `LKR ${pt.value.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+        `LKR ${rxVal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+        `LKR ${otcVal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+        `${pt.ordersCount ?? (pt.value > 0 ? 1 : 0)}`,
+        `${pt.mixedOrdersCount ?? (rxVal > 0 && otcVal > 0 ? 1 : 0)}`,
+        pt.value > 0 ? 'Fulfillments' : 'Zero Sales',
+      ];
+    });
+
+    fn(doc, {
+      startY: startY4 + 2,
+      margin: { left: margin, right: margin },
+      head: [['Code', 'Date & Interval', 'Invoiced Sales', 'Rx POM', 'OTC & Wellness', 'Orders', 'Mixed', 'Status']],
+      body: trajectoryRows,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [...BRAND_TEAL],
+        textColor: [...WHITE],
+        fontStyle: 'bold',
+        fontSize: 7,
+        cellPadding: 1.8,
+      },
+      bodyStyles: {
+        fontSize: 7,
+        cellPadding: 1.5,
+        textColor: [...TEXT_MAIN],
+      },
+      columnStyles: {
+        2: { halign: 'right', fontStyle: 'bold' },
+        3: { halign: 'right' },
+        4: { halign: 'right' },
+        5: { halign: 'center' },
+        6: { halign: 'center' },
+      },
+    });
   }
+
+  const nextY4 = (doc as any).lastAutoTable.finalY + 8;
+
+  // 8. Official Certification & Sign-off Block
+  let signY = nextY4;
+  if (signY > pageHeight - 32) {
+    doc.addPage();
+    signY = 20;
+  }
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(0.3);
+  doc.line(margin, signY, margin + 70, signY);
+  doc.line(pageWidth - margin - 70, signY, pageWidth - margin, signY);
+
+  doc.setTextColor(...TEXT_MUTED);
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.text('CERTIFIED BY PHARMACIST-IN-CHARGE', margin, signY + 4);
+  doc.setFont('helvetica', 'normal');
+  doc.text('SLMC Registered Pharmacist Signature & Seal', margin, signY + 8);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('DISPENSARY REGULATORY AUDIT VERIFICATION', pageWidth - margin - 70, signY + 4);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`NMRA Licence: ${props.license} • Good Pharmacy Practice`, pageWidth - margin - 70, signY + 8);
 
   // 8. Footer
   const totalPages = doc.getNumberOfPages();

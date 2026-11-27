@@ -15,10 +15,22 @@ export interface FinancialExcelProps {
   orders: number;
   rxOrders: number;
   otcOrders: number;
+  mixedOrders?: number;
+  attachRate?: string | number;
+  rxRevenue?: number;
+  otcRevenue?: number;
   activePromos: number;
   totalRedemptions: number;
   categories: { name: string; percent: number; amount: string }[];
-  points: { label: string; fullLabel: string; value: number }[];
+  points: {
+    label: string;
+    fullLabel: string;
+    value: number;
+    rxValue?: number;
+    otcValue?: number;
+    mixedOrdersCount?: number;
+    ordersCount?: number;
+  }[];
 }
 
 export interface AuditTrailExcelProps {
@@ -195,7 +207,12 @@ export async function downloadFinancialReportXlsx(props: FinancialExcelProps): P
 
   ws.mergeCells('H6:I6');
   const c4Sub = ws.getCell('H6');
-  c4Sub.value = `${props.rxOrders} Prescriptions (POM) · ${props.otcOrders} OTC`;
+  const attachDisplay =
+    typeof props.attachRate === 'number'
+      ? `${props.attachRate.toFixed(1)}%`
+      : props.attachRate || (props.orders > 0 ? `${(((props.mixedOrders || 0) / props.orders) * 100).toFixed(1)}%` : '0.0%');
+  const mixedCount = props.mixedOrders || 0;
+  c4Sub.value = `${props.rxOrders} Rx · ${props.otcOrders} OTC · ${mixedCount} Mixed (${attachDisplay} Attach)`;
   c4Sub.font = { name: 'Segoe UI', size: 8.5, italic: true, color: { argb: BRAND_TEAL } };
   c4Sub.alignment = { horizontal: 'center', vertical: 'middle' };
 
@@ -352,11 +369,18 @@ export async function downloadFinancialReportXlsx(props: FinancialExcelProps): P
     'SLA Compliance Status',
   ]);
 
-  const kpis = [
-    ['Total Orders Dispensed', props.orders, 'Completed Orders', '100% Target Met', 'Supervising Pharmacist', 'NMRA Act § 54 & GPP', 'All Dispensary Lines', 'Verified'],
+  const kpis: [string, number | string, string, string, string, string, string, string][] = [
+    ['Total Invoiced Orders Dispensed', props.orders, 'Completed Orders', '100% Target Met', 'Supervising Pharmacist', 'NMRA Act § 54 & GPP', 'All Dispensary Lines', 'Verified'],
     ['Prescription POM Orders', props.rxOrders, 'POM Prescriptions', 'Dispensed under Custody', 'Registered Pharmacist', 'Schedule III & IV (POM)', 'Prescription Only', 'Statutory Verified'],
     ['Over-The-Counter Orders', props.otcOrders, 'OTC Transactions', 'General Healthcare Sales', 'Dispensary Staff', 'Schedule I & II (OTC)', 'Consumer Retail', 'Cleared'],
-    ['Mean Basket Size', props.stats.current.avgBasket || 0, 'LKR / Transaction', 'Commercial Benchmark', 'Dispensary Commercials', 'Standard Shelf Margin', 'Transaction Basket', 'Positive Contribution'],
+    ['Mixed Basket Cross-Sells (Rx + OTC)', props.mixedOrders || 0, 'Mixed Basket Orders', 'Commercial Growth Target', 'Pharmacist Consultation', 'NMRA & Consumer Act', 'Unified Checkout', 'Tracked'],
+    ['Prescription Line Sales (Rx POM)', props.rxRevenue ?? props.stats.rxRevenue ?? 0, 'LKR Volume', 'Clinical Core Line', 'Registered Pharmacist', 'Schedule III & IV Formulary', 'Prescription Dispensing', 'Audited'],
+    ['OTC Healthcare Line Sales', props.otcRevenue ?? props.stats.otcRevenue ?? 0, 'LKR Volume', 'Wellness & OTC Line', 'Dispensary Staff', 'Schedule I & II General', 'Consumer Retail Lines', 'Audited'],
+    ['OTC Basket Attach Rate', typeof props.attachRate === 'number' ? `${props.attachRate.toFixed(1)}%` : props.attachRate || (props.orders > 0 ? `${(((props.mixedOrders || 0) / props.orders) * 100).toFixed(1)}%` : '0.0%'), 'Cross-Sell Attach %', 'Dispensary Target: ≥ 30%', 'Commercials Team', 'GPP Commercial Telemetry', 'Basket Cross-Sell', 'Benchmark Monitored'],
+    ['Mean Basket Size (ABV)', props.stats.current.avgBasket || 0, 'LKR / Transaction', 'Commercial Benchmark', 'Dispensary Commercials', 'Standard Shelf Margin', 'Transaction Basket', 'Positive Contribution'],
+    ['Average Quote Turnaround (TAT)', `${(props.stats.current.avgQuoteTurnaroundMinutes || 0).toFixed(1)} mins`, 'Turnaround Speed', 'Target SLA: ≤ 10 mins', 'Registered Pharmacist', 'Good Pharmacy Practice', 'Digital Prescription Queue', 'SLA Compliant'],
+    ['Bench Preparation Speed', `${(props.stats.current.avgPrepMinutes || 0).toFixed(1)} mins`, 'Bench Assembly Time', 'Target SLA: ≤ 15 mins', 'Dispensing Staff', 'GPP Handover Standard', 'Bench Assembly', 'SLA Compliant'],
+    ['Quote Acceptance Rate', `${(props.stats.current.quoteAcceptanceRate || 0).toFixed(1)}%`, 'Customer Conversion', 'Target: ≥ 85%', 'Dispensary Management', 'Commercial Pricing Standard', 'Digital Prescription Flow', 'Conversion Monitored'],
     ['Fulfillment On-Time SLA Rate', (props.stats.current.onTimeRate || 0) / 100, 'Handover Speed %', 'MediPick Benchmark: 95.0%', 'Operations Team', 'Good Pharmacy Practice', 'Patient Handover', 'Gold Standard SLA'],
     ['Active Promotional Campaigns', props.activePromos, 'Active Campaigns', 'Active Store Offers', 'Marketing & Retail', 'Fair Trading Regulations', 'Dispensary Promotions', 'Store Active'],
     ['Total Campaign Redemptions', props.totalRedemptions, 'Discount Claims', 'Customer Redemptions', 'Marketing & Retail', 'Promotional Deductions', 'Loyalty / Vouchers', 'Absorbed in Net Sales'],
@@ -374,9 +398,12 @@ export async function downloadFinancialReportXlsx(props: FinancialExcelProps): P
     for (let c = 2; c <= 9; c++) {
       applyThinBorder(r.getCell(c));
     }
-    if (idx === 3) {
+    // Number formatting by metric type
+    if (idx === 4 || idx === 5 || idx === 7) {
+      // Currency (Rx Sales, OTC Sales, Mean Basket)
       r.getCell(3).numFmt = '"LKR "#,##0.00';
-    } else if (idx === 4) {
+    } else if (idx === 11) {
+      // Fulfillment SLA %
       r.getCell(3).numFmt = '0.0%';
       r.getCell(3).font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: EMERALD_TEXT } };
     } else if (typeof kpi[1] === 'number') {
@@ -447,17 +474,21 @@ export async function downloadFinancialReportXlsx(props: FinancialExcelProps): P
   };
 
   ws2.columns = [
-    { width: 3 },  // Margin
-    { width: 18 }, // Interval Code
-    { width: 28 }, // Calendar Date & Day
-    { width: 24 }, // Net Dispensed Sales
-    { width: 26 }, // Running Cumulative Sales
-    { width: 22 }, // Daily Contribution Share
-    { width: 26 }, // Fulfillment Status
+    { width: 3 },  // A: Margin
+    { width: 16 }, // B: Interval Code
+    { width: 26 }, // C: Calendar Date & Day
+    { width: 22 }, // D: Invoiced Sales (LKR)
+    { width: 22 }, // E: Prescription POM (LKR)
+    { width: 22 }, // F: OTC & Wellness (LKR)
+    { width: 16 }, // G: Orders Dispensed
+    { width: 16 }, // H: Mixed Baskets
+    { width: 24 }, // I: Cumulative Total (LKR)
+    { width: 18 }, // J: Period Share (%)
+    { width: 24 }, // K: Operational Status
   ];
 
   // Header Banner
-  ws2.mergeCells('B1:G1');
+  ws2.mergeCells('B1:K1');
   const t2_1 = ws2.getCell('B1');
   t2_1.value = 'MEDIPICK DISPENSARY DAILY FULFILLMENT & SALES LEDGER';
   t2_1.font = { name: 'Segoe UI', size: 13, bold: true, color: { argb: WHITE } };
@@ -465,9 +496,9 @@ export async function downloadFinancialReportXlsx(props: FinancialExcelProps): P
   t2_1.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
   ws2.getRow(1).height = 34;
 
-  ws2.mergeCells('B2:G2');
+  ws2.mergeCells('B2:K2');
   const t2_2 = ws2.getCell('B2');
-  t2_2.value = `Facility: ${props.pharmacyTitle}   |   Period: ${props.period}   |   Total Intervals: ${props.points.length}`;
+  t2_2.value = `Facility: ${props.pharmacyTitle}   |   Period: ${props.period}   |   Total Intervals: ${props.points.length}   |   Line-Item Attributed Telemetry`;
   t2_2.font = { name: 'Segoe UI', size: 9.5, color: { argb: SOFT_MINT } };
   t2_2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND_TEAL } };
   t2_2.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
@@ -480,16 +511,20 @@ export async function downloadFinancialReportXlsx(props: FinancialExcelProps): P
     'Interval Code',
     'Calendar Date & Day',
     'Invoiced Sales (LKR)',
+    'Prescription POM (LKR)',
+    'OTC & Wellness (LKR)',
+    'Orders Dispensed',
+    'Mixed Baskets',
     'Cumulative Total (LKR)',
     'Period Share (%)',
     'Operational Fulfillment',
   ]);
   hRow2.height = 24;
-  for (let c = 2; c <= 7; c++) {
+  for (let c = 2; c <= 11; c++) {
     const cell = hRow2.getCell(c);
     cell.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: WHITE } };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND_TEAL } };
-    cell.alignment = { vertical: 'middle', horizontal: c >= 4 && c <= 6 ? 'right' : 'left' };
+    cell.alignment = { vertical: 'middle', horizontal: c >= 4 && c <= 10 ? 'right' : 'left' };
     applyThinBorder(cell);
   }
 
@@ -499,11 +534,26 @@ export async function downloadFinancialReportXlsx(props: FinancialExcelProps): P
   props.points.forEach((pt, idx) => {
     runningSum += pt.value;
     const share = pt.value / totalPeriodSales;
+    const rxVal =
+      pt.rxValue ??
+      (pt.value > 0
+        ? props.rxRevenue
+          ? Math.round(pt.value * (props.rxRevenue / (props.grossRaw || 1)) * 100) / 100
+          : 0
+        : 0);
+    const otcVal = pt.otcValue ?? (pt.value > 0 ? Math.max(0, pt.value - rxVal) : 0);
+    const ordersCnt = pt.ordersCount ?? (pt.value > 0 ? 1 : 0);
+    const mixedCnt = pt.mixedOrdersCount ?? (rxVal > 0 && otcVal > 0 ? 1 : 0);
+
     const r = ws2.addRow([
       '',
       pt.label,
       pt.fullLabel,
       pt.value,
+      rxVal,
+      otcVal,
+      ordersCnt,
+      mixedCnt,
       runningSum,
       share,
       pt.value > 0 ? 'Fulfillments Recorded' : 'Zero Transactions',
@@ -511,23 +561,31 @@ export async function downloadFinancialReportXlsx(props: FinancialExcelProps): P
     r.height = 22;
     r.font = { name: 'Segoe UI', size: 9.5, color: { argb: TEXT_MAIN } };
     if (idx % 2 === 1) {
-      for (let c = 2; c <= 7; c++) {
+      for (let c = 2; c <= 11; c++) {
         r.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: SLATE_BG } };
       }
     }
-    for (let c = 2; c <= 7; c++) {
+    for (let c = 2; c <= 11; c++) {
       applyThinBorder(r.getCell(c));
     }
     r.getCell(4).numFmt = '"LKR "#,##0.00';
     r.getCell(4).alignment = { horizontal: 'right', vertical: 'middle' };
     r.getCell(5).numFmt = '"LKR "#,##0.00';
     r.getCell(5).alignment = { horizontal: 'right', vertical: 'middle' };
-    r.getCell(6).numFmt = '0.0%';
-    r.getCell(6).alignment = { horizontal: 'center', vertical: 'middle' };
+    r.getCell(6).numFmt = '"LKR "#,##0.00';
+    r.getCell(6).alignment = { horizontal: 'right', vertical: 'middle' };
+    r.getCell(7).numFmt = '#,##0';
+    r.getCell(7).alignment = { horizontal: 'center', vertical: 'middle' };
+    r.getCell(8).numFmt = '#,##0';
+    r.getCell(8).alignment = { horizontal: 'center', vertical: 'middle' };
+    r.getCell(9).numFmt = '"LKR "#,##0.00';
+    r.getCell(9).alignment = { horizontal: 'right', vertical: 'middle' };
+    r.getCell(10).numFmt = '0.0%';
+    r.getCell(10).alignment = { horizontal: 'center', vertical: 'middle' };
   });
 
   // Enable AutoFilter on Tab 2
-  ws2.autoFilter = 'B4:G4';
+  ws2.autoFilter = 'B4:K4';
 
   // Export to Blob and trigger browser download
   const buffer = await wb.xlsx.writeBuffer();

@@ -9,7 +9,7 @@
 ```text
 medipick-common/
 ├── backend/                  # Python 3.11 shared backend package
-│   ├── medipick_core/        # SQLAlchemy models (23), Alembic, RBAC, JWT, Storage
+│   ├── medipick_core/        # SQLAlchemy models (39 tables across 23 files), Alembic, RBAC, JWT, Storage
 │   ├── alembic/              # Database migration versions
 │   └── pyproject.toml        # pip package configuration
 │
@@ -25,7 +25,7 @@ medipick-common/
 │   └── types.ts              # Canonical TypeScript domain types
 │
 └── docs/                     # Master Platform Documentation
-    ├── ROLES_AND_RBAC.md     # Master Roles (Customer, Staff, Pharmacist, Admin, Super Admin)
+    ├── ROLES_AND_RBAC.md     # Roles: Customer, Pharmacy Staff, Pharmacist, Pharmacy Admin
     ├── METRICS_AND_CALCULATIONS.md # FSM rules, financial formulas, stock health
     ├── DESIGN_SYSTEM.md      # Mobile (Expo) vs Web (Next.js) design tokens
     ├── AUTH_AND_LIFECYCLE.md # OTP & JWT auth flows and revocation
@@ -36,7 +36,7 @@ medipick-common/
 
 ## 🚀 How Services Consume `medipick-common`
 
-### 1. In Backend Microservices (`customer-backend`, `pharmacy-backend`, `admin-backend`)
+### 1. In Backend Microservices (`customer-backend`, `pharmacy-backend`)
 In `requirements.txt`:
 ```bash
 -e ../medipick-common/backend
@@ -49,7 +49,7 @@ from medipick_core.rbac import require_role
 from medipick_core.schemas.common import SuccessResponse
 ```
 
-### 2. In Frontend Portals (`pharmacy-ui`, `admin-ui`)
+### 2. In Frontend Portals (`pharmacy-ui`)
 In `package.json`:
 ```json
 "dependencies": {

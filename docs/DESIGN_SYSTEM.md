@@ -1,6 +1,6 @@
 # MediPick Master Design System Guide
 
-MediPick employs a unified, accessible, high-contrast healthcare visual design system with shared tokens across **Customer Mobile** and **Dispensary / Admin Web Portals**.
+MediPick employs a unified, accessible, high-contrast healthcare visual design system with shared tokens across **Customer Mobile App** and **Pharmacy Dispensary Web Portal**.
 
 ---
 
@@ -14,7 +14,7 @@ MediPick employs a unified, accessible, high-contrast healthcare visual design s
 | **`accent.lime`** | `#C7E36B` | Vibrant accent: confirmation checks, key notifications, CTA highlights |
 | **`accent.limeSoft`** | `#EDF4DE` | Soft pill background for positive status chips |
 | **`secondary.plum`** | `#6B4473` | Regulatory alerts, POM prescription tags, dispute badges |
-| **`dark.background`** | `#0B1313` | Core dark theme background for web dashboards |
+| **`dark.background`** | `#0B1313` | Core dark theme background for web dashboard |
 | **`dark.surface`** | `#111D1E` | Elevated card and modal surface in dark theme |
 | **`dark.border`** | `#1F3335` | Subtle divider and card outline |
 
@@ -27,7 +27,7 @@ MediPick employs a unified, accessible, high-contrast healthcare visual design s
 * **Components:** Native bottom navigation tabs, bottom sheet drawers, gesture cards, camera integration for prescriptions.
 * **Token Consumption:** Imports `BrandColors` from `@medipick/ui/tokens` directly into NativeWind / React Native StyleSheet.
 
-### B. Web Portals (Pharmacy UI & Admin UI - Next.js)
+### B. Web Portal (Pharmacy UI - Next.js)
 * **Design Philosophy:** Dense data display, high information density, keyboard navigation, dark mode first.
 * **Components:** Collapsible sidebar (`<SidebarLayout>`), paginated tables (`<DataTable>`), KPI metrics (`<StatCard>`), modal dialogs (`<Modal>`), PDF & Excel exports.
 * **Token Consumption:** Tailwind CSS v4 variables mapped directly to MediPick brand hex values.

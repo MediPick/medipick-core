@@ -1,6 +1,6 @@
 /**
  * MediPick Canonical Brand Design System Tokens
- * Shared across Customer UI (Mobile/Expo), Pharmacy UI (Web Dashboard), and Admin UI (Web Dashboard)
+ * Shared across Customer UI (Mobile/Expo) and Pharmacy UI (Web Dashboard)
  */
 export const BrandColors = {
   primary: {

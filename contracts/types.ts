@@ -1,15 +1,27 @@
 /**
  * Canonical TypeScript Interfaces for MediPick Domain Entities
- * Shared across Customer UI, Pharmacy UI, and Admin UI
+ * Shared across Customer UI and Pharmacy UI
  */
 
-export type UserRole =
-  | 'CUSTOMER'
-  | 'PHARMACY_STAFF'
-  | 'PHARMACIST'
-  | 'PHARMACY_ADMIN'
-  | 'COMPLIANCE_OFFICER'
-  | 'SUPER_ADMIN';
+export type UserRole = 'CUSTOMER' | 'PHARMACY_STAFF' | 'PHARMACIST' | 'PHARMACY_ADMIN';
+
+export type StaffRole =
+  | 'Owner / Chief Pharmacist'
+  | 'Pharmacy Owner'
+  | 'Investor'
+  | 'Designated Manager / Pharmacist'
+  | 'Staff Pharmacist'
+  | 'Dispensary Assistant'
+  | 'Dispensary Cashier';
+
+export interface StaffPermissions {
+  canReviewRx: boolean;
+  canApproveQuotes: boolean;
+  canManageInventory: boolean;
+  canViewFinancials: boolean;
+  canManageStaff: boolean;
+  canProcessRefunds: boolean;
+}
 
 export interface User {
   id: string;
@@ -20,11 +32,22 @@ export interface User {
   createdAt: string;
 }
 
+export interface PharmacyStaffProfile {
+  id: string;
+  userId: string;
+  pharmacyId: string;
+  staffRole: StaffRole;
+  slmcNumber?: string;
+  isOwner: boolean;
+  isDesignatedManager: boolean;
+  onDuty: boolean;
+}
+
 export interface Pharmacy {
   id: string;
   name: string;
   registrationNumber: string;
-  slmcNumber?: string;
+  nmraLicense?: string;
   phone: string;
   email: string;
   address: string;

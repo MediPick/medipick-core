@@ -1,6 +1,6 @@
-# MediPick Master System Architecture
+# MediPick System Architecture
 
-MediPick is a microservice and multi-portal platform designed to provide safe, audited, on-demand pharmacy dispensing across Sri Lanka.
+MediPick is a microservice platform designed to provide safe, audited, on-demand pharmacy dispensing across Sri Lanka.
 
 ---
 
@@ -9,7 +9,7 @@ MediPick is a microservice and multi-portal platform designed to provide safe, a
 ```mermaid
 graph TD
     subgraph Shared Common Layer [medipick-common]
-        BACKEND_CORE["backend/ (medipick-core)<br/>DB Models, Alembic, RBAC, Storage"]
+        BACKEND_CORE["backend/ (medipick_core)<br/>DB Models, Alembic, RBAC, Storage"]
         FRONTEND_UI["frontend/ (@medipick/ui)<br/>Tokens, DataTable, Badges, Modals, Exports"]
         CONTRACTS["contracts/<br/>OpenAPI Specifications & TypeScript Types"]
     end
@@ -17,14 +17,12 @@ graph TD
     subgraph Client Portals
         CUI["medipick-customer-ui<br/>(React Native / Expo Mobile)"]
         PUI["medipick-pharmacy-ui<br/>(Next.js Web Dashboard)"]
-        AUI["Upcoming medipick-admin-ui<br/>(Next.js Web Dashboard)"]
     end
 
     subgraph Backend Microservices
         CB["medipick-customer-backend<br/>(FastAPI / Port 8000)"]
         PB["medipick-pharmacy-backend<br/>(FastAPI / Port 8002)"]
         VS["medipick-vision-service<br/>(YOLOv8 AI / Port 8001)"]
-        AB["Upcoming medipick-admin-backend<br/>(FastAPI / Port 8003)"]
     end
 
     subgraph Infrastructure [medipick-iac]
@@ -36,10 +34,8 @@ graph TD
     %% Dependencies
     CB -->|pip install| BACKEND_CORE
     PB -->|pip install| BACKEND_CORE
-    AB -.->|pip install| BACKEND_CORE
 
     PUI -->|npm install| FRONTEND_UI
-    AUI -.->|npm install| FRONTEND_UI
     CUI -->|imports tokens| FRONTEND_UI
 
     CB --> PG
@@ -53,7 +49,7 @@ graph TD
 
 ## 2. Repository Roster & Responsibilities
 
-1. **`medipick-common`** *(formerly `medipick-core`)*:
+1. **`medipick-common`**:
    * **`backend/`**: Unified SQLAlchemy models, Alembic migrations, RBAC definitions, PayHere payment helpers, MinIO storage.
    * **`frontend/`**: Shared UI design tokens, web dashboard components (DataTables, Badges, Modals, Export), and utility formatters.
    * **`contracts/`**: Centralized OpenAPI schema and TypeScript interfaces.

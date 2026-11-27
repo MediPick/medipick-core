@@ -3,7 +3,7 @@
   "info": {
     "title": "MediPick Platform API",
     "version": "1.0.0",
-    "description": "Unified OpenAPI contract for MediPick Customer, Pharmacy, and Admin Microservices."
+    "description": "Unified OpenAPI contract for MediPick Customer and Pharmacy Microservices."
   },
   "paths": {
     "/v1/auth/request-otp": {
@@ -24,7 +24,7 @@
     },
     "/v1/auth/login": {
       "post": {
-        "summary": "Staff & Admin Email/Password Login",
+        "summary": "Staff Email/Password Login",
         "tags": [
           "Authentication"
         ]
